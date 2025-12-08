@@ -50,3 +50,25 @@ npm run dev -- --host --port 5500
 
 7) Optional: reuse inference helper in scripts  
 - See `training/inference.py` for `predict_metal_nut_defects` to batch images offline.
+
+
+
+
+
+
+
+
+
+
+
+
+backend:
+
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+frontend:
+
+cd frontend
+npm install
+npm run dev -- --host --port 5500
+

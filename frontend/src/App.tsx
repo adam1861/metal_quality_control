@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
 import { UploadPanel } from "./components/UploadPanel";
@@ -6,7 +6,6 @@ import { ResultsDashboard } from "./components/ResultsDashboard";
 import { PDFReportSection } from "./components/PDFReportSection";
 import { Footer } from "./components/Footer";
 import { AuthModal } from "./components/AuthModal";
-import { useEffect, useState } from "react";
 
 export interface PredictionResult {
   is_defective: boolean;
