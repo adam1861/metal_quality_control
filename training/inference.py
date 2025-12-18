@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import base64
 import io
+from collections import deque
 from pathlib import Path
 from typing import Dict, Tuple, Union
 
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from training.data_utils import preprocess_image
 from training.model import UNet
@@ -27,6 +28,236 @@ CLASS_COLOR_MAP = {
     3: (0, 120, 255),
     4: (255, 215, 0),
 }
+
+_FOUR_NEIGHBORS = ((-1, 0), (1, 0), (0, -1), (0, 1))
+_EIGHT_NEIGHBORS = (
+    (-1, 0),
+    (1, 0),
+    (0, -1),
+    (0, 1),
+    (-1, -1),
+    (-1, 1),
+    (1, -1),
+    (1, 1),
+)
+
+
+def _otsu_threshold(gray: np.ndarray) -> int:
+    """Compute Otsu threshold for a uint8 grayscale image."""
+    if gray.dtype != np.uint8:
+        gray = gray.astype(np.uint8)
+    hist = np.bincount(gray.ravel(), minlength=256).astype(np.float64)
+    total = float(gray.size)
+    if total <= 0:
+        return 0
+
+    sum_total = float(np.dot(np.arange(256, dtype=np.float64), hist))
+    sum_b = 0.0
+    w_b = 0.0
+    best_thresh = 0
+    best_var = -1.0
+
+    for t in range(256):
+        w_b += hist[t]
+        if w_b == 0.0:
+            continue
+        w_f = total - w_b
+        if w_f == 0.0:
+            break
+        sum_b += float(t) * hist[t]
+        m_b = sum_b / w_b
+        m_f = (sum_total - sum_b) / w_f
+        var_between = w_b * w_f * (m_b - m_f) ** 2
+        if var_between > best_var:
+            best_var = var_between
+            best_thresh = t
+
+    return int(best_thresh)
+
+
+def _largest_component(
+    mask: np.ndarray, *, connectivity: int = 8, prefer_non_border: bool = True
+) -> tuple[np.ndarray, bool]:
+    """Return the largest connected component in a boolean mask.
+
+    Returns (component_mask, touches_border).
+    """
+    if mask.dtype != bool:
+        mask = mask.astype(bool)
+
+    h, w = mask.shape
+    if h == 0 or w == 0 or not mask.any():
+        return np.zeros_like(mask, dtype=bool), False
+
+    neighbors = _EIGHT_NEIGHBORS if connectivity == 8 else _FOUR_NEIGHBORS
+    visited = np.zeros((h, w), dtype=bool)
+    best_pixels: list[tuple[int, int]] = []
+    best_touches_border = True
+
+    for y in range(h):
+        for x in range(w):
+            if not mask[y, x] or visited[y, x]:
+                continue
+            q: deque[tuple[int, int]] = deque([(y, x)])
+            visited[y, x] = True
+            pixels: list[tuple[int, int]] = []
+            touches_border = False
+
+            while q:
+                cy, cx = q.popleft()
+                pixels.append((cy, cx))
+                if cy == 0 or cy == h - 1 or cx == 0 or cx == w - 1:
+                    touches_border = True
+
+                for dy, dx in neighbors:
+                    ny, nx = cy + dy, cx + dx
+                    if ny < 0 or ny >= h or nx < 0 or nx >= w:
+                        continue
+                    if visited[ny, nx] or not mask[ny, nx]:
+                        continue
+                    visited[ny, nx] = True
+                    q.append((ny, nx))
+
+            if not best_pixels:
+                best_pixels = pixels
+                best_touches_border = touches_border
+                continue
+
+            if prefer_non_border:
+                if best_touches_border and not touches_border:
+                    best_pixels = pixels
+                    best_touches_border = touches_border
+                    continue
+                if (not best_touches_border) and touches_border:
+                    continue
+
+            if len(pixels) > len(best_pixels):
+                best_pixels = pixels
+                best_touches_border = touches_border
+
+    out = np.zeros_like(mask, dtype=bool)
+    if best_pixels:
+        ys, xs = zip(*best_pixels)
+        out[np.array(ys, dtype=np.int32), np.array(xs, dtype=np.int32)] = True
+    return out, best_touches_border
+
+
+def _fill_small_holes(mask: np.ndarray, *, max_hole_area: int) -> np.ndarray:
+    """Fill enclosed holes up to `max_hole_area` pixels.
+
+    This avoids filling the nut's large center hole while closing small thresholding holes.
+    """
+    if max_hole_area <= 0:
+        return mask
+
+    mask = mask.astype(bool)
+    h, w = mask.shape
+    if h == 0 or w == 0:
+        return mask
+
+    background = ~mask
+    exterior = np.zeros((h, w), dtype=bool)
+    q: deque[tuple[int, int]] = deque()
+
+    # Seed with border background pixels.
+    for x in range(w):
+        if background[0, x]:
+            exterior[0, x] = True
+            q.append((0, x))
+        if background[h - 1, x]:
+            exterior[h - 1, x] = True
+            q.append((h - 1, x))
+    for y in range(h):
+        if background[y, 0]:
+            exterior[y, 0] = True
+            q.append((y, 0))
+        if background[y, w - 1]:
+            exterior[y, w - 1] = True
+            q.append((y, w - 1))
+
+    while q:
+        cy, cx = q.popleft()
+        for dy, dx in _FOUR_NEIGHBORS:
+            ny, nx = cy + dy, cx + dx
+            if ny < 0 or ny >= h or nx < 0 or nx >= w:
+                continue
+            if exterior[ny, nx] or not background[ny, nx]:
+                continue
+            exterior[ny, nx] = True
+            q.append((ny, nx))
+
+    holes = background & ~exterior
+    if not holes.any():
+        return mask
+
+    visited = np.zeros((h, w), dtype=bool)
+    out = mask.copy()
+
+    for y in range(h):
+        for x in range(w):
+            if not holes[y, x] or visited[y, x]:
+                continue
+            q = deque([(y, x)])
+            visited[y, x] = True
+            pixels: list[tuple[int, int]] = []
+
+            while q:
+                cy, cx = q.popleft()
+                pixels.append((cy, cx))
+                for dy, dx in _FOUR_NEIGHBORS:
+                    ny, nx = cy + dy, cx + dx
+                    if ny < 0 or ny >= h or nx < 0 or nx >= w:
+                        continue
+                    if visited[ny, nx] or not holes[ny, nx]:
+                        continue
+                    visited[ny, nx] = True
+                    q.append((ny, nx))
+
+            if len(pixels) <= max_hole_area:
+                ys, xs = zip(*pixels)
+                out[np.array(ys, dtype=np.int32), np.array(xs, dtype=np.int32)] = True
+
+    return out
+
+
+def segment_nut_mask(
+    image: Image.Image,
+    *,
+    blur_radius: float = 1.0,
+    fill_holes_max_area_ratio: float = 0.01,
+) -> np.ndarray:
+    """Segment the nut (object of interest) from the dark background.
+
+    Returns a boolean mask (True = nut pixel, False = background).
+    """
+    gray_img = image.convert("L")
+    if blur_radius and blur_radius > 0:
+        gray_img = gray_img.filter(ImageFilter.GaussianBlur(radius=float(blur_radius)))
+    gray = np.array(gray_img, dtype=np.uint8)
+    thr = _otsu_threshold(gray)
+
+    # Candidate A: pixels brighter than threshold.
+    cand_a, a_touches_border = _largest_component(gray > thr, connectivity=8, prefer_non_border=True)
+    # Candidate B: inverted threshold (handles cases where background is brighter).
+    cand_b, b_touches_border = _largest_component(gray <= thr, connectivity=8, prefer_non_border=True)
+
+    def _score(candidate: np.ndarray, touches_border: bool) -> tuple[int, int]:
+        area = int(candidate.sum())
+        # Prefer non-border components strongly.
+        border_bonus = 1_000_000 if not touches_border else 0
+        return border_bonus + area, area
+
+    best = cand_a
+    if cand_b.any() and (_score(cand_b, b_touches_border) > _score(cand_a, a_touches_border)):
+        best = cand_b
+
+    if not best.any():
+        return np.zeros_like(gray, dtype=bool)
+
+    # If the "best" touches the border, it's likely background. Keep it anyway as a fallback.
+    max_hole_area = int(best.size * float(fill_holes_max_area_ratio))
+    best = _fill_small_holes(best, max_hole_area=max_hole_area)
+    return best.astype(bool)
 
 
 def load_model(weights_path: Path, device: torch.device, num_classes: int = 5) -> UNet:

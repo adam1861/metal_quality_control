@@ -1,21 +1,18 @@
-import { Hexagon, Moon, Sun, User } from "lucide-react";
+import { Hexagon, Moon, Sun } from "lucide-react";
 
 interface HeaderProps {
   isDarkMode: boolean;
   setIsDarkMode: (value: boolean) => void;
   onNavigate: (section: string) => void;
-  onAuthClick: () => void;
   activeSection: string;
-  userEmail?: string | null;
 }
 
-export function Header({ isDarkMode, setIsDarkMode, onNavigate, onAuthClick, activeSection, userEmail }: HeaderProps) {
+export function Header({ isDarkMode, setIsDarkMode, onNavigate, activeSection }: HeaderProps) {
   const navItems = [
     { label: "Dashboard", id: "dashboard" },
     { label: "Upload", id: "upload" },
     { label: "Results", id: "results" },
     { label: "About", id: "about" },
-    { label: "Account", id: "account" },
   ];
 
   return (
@@ -77,18 +74,6 @@ export function Header({ isDarkMode, setIsDarkMode, onNavigate, onAuthClick, act
               >
                 {isDarkMode ? <Moon className="w-3 h-3 text-[#2979FF]" /> : <Sun className="w-3 h-3 text-gray-600" />}
               </div>
-            </button>
-
-            <button
-              onClick={onAuthClick}
-              className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                isDarkMode
-                  ? "bg-gradient-to-br from-[#2979FF] to-[#00E676] hover:shadow-lg hover:shadow-[#2979FF]/50"
-                  : "bg-gradient-to-br from-[#2979FF] to-[#00E676] hover:shadow-lg hover:shadow-[#2979FF]/30"
-              }`}
-              title={userEmail || "Sign in / Sign up"}
-            >
-              <User className="w-5 h-5 text-white" />
             </button>
           </div>
         </div>

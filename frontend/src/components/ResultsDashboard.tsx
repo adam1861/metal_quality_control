@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle, Upload } from "lucide-react";
 import { PredictionResult } from "../App";
 
 interface ResultsDashboardProps {
   isDarkMode: boolean;
   uploadedImage: string;
   result: PredictionResult;
+  onUploadNew: () => void;
 }
 
-export function ResultsDashboard({ isDarkMode, uploadedImage, result }: ResultsDashboardProps) {
+export function ResultsDashboard({ isDarkMode, uploadedImage, result, onUploadNew }: ResultsDashboardProps) {
   const [showOverlay, setShowOverlay] = useState(true);
 
   const defectColors = {
@@ -19,13 +20,23 @@ export function ResultsDashboard({ isDarkMode, uploadedImage, result }: ResultsD
   };
 
   const totalDefectPct = result.defect_ratio * 100;
+  const imageDefectPct = typeof result.defect_ratio_image === "number" ? result.defect_ratio_image * 100 : null;
 
   return (
     <section className="space-y-6">
-      <h2 className="text-2xl flex items-center gap-2">
-        <AlertCircle className="w-6 h-6 text-[#2979FF]" />
-        Analysis Results
-      </h2>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-2xl flex items-center gap-2">
+          <AlertCircle className="w-6 h-6 text-[#2979FF]" />
+          Analysis Results
+        </h2>
+        <button
+          onClick={onUploadNew}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#2979FF] to-[#00E676] text-white shadow hover:shadow-lg transition-all duration-300"
+        >
+          <Upload className="w-4 h-4" />
+          Upload new image
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div
@@ -114,9 +125,26 @@ export function ResultsDashboard({ isDarkMode, uploadedImage, result }: ResultsD
             <p className="text-sm opacity-70 mb-1">Defect Coverage</p>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl text-[#EF4444]">{totalDefectPct.toFixed(2)}%</span>
-              <span className="text-sm opacity-60">of surface</span>
+              <span className="text-sm opacity-60">of nut surface</span>
             </div>
+            {imageDefectPct !== null && (
+              <p className="mt-1 text-xs opacity-60">Image defect coverage: {imageDefectPct.toFixed(2)}%</p>
+            )}
           </div>
+
+          {result.quality_decision && (
+            <div className={isDarkMode ? "bg-white/5 p-4 rounded-xl" : "bg-gray-50 p-4 rounded-xl"}>
+              <p className="text-sm opacity-70 mb-1">Quality Decision</p>
+              <p className={result.quality_decision === "REJECT" ? "text-[#EF4444]" : "text-[#00E676]"}>
+                {result.quality_decision}
+              </p>
+              {typeof result.reject_threshold_on_nut === "number" && (
+                <p className="mt-1 text-xs opacity-60">
+                  Reject threshold: {(result.reject_threshold_on_nut * 100).toFixed(0)}% defect on nut
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-3">
             <p className="text-sm opacity-70">Per-Class Analysis</p>

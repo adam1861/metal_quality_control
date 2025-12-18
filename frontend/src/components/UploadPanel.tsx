@@ -4,6 +4,7 @@ interface UploadPanelProps {
   isDarkMode: boolean;
   uploadedImage: string | null;
   onImageUpload: (file: File, imageUrl: string) => void;
+  onUploadNew: () => void;
   isAnalyzing: boolean;
   onAnalyze: () => void;
   advancedMode: boolean;
@@ -15,6 +16,7 @@ export function UploadPanel({
   isDarkMode,
   uploadedImage,
   onImageUpload,
+  onUploadNew,
   isAnalyzing,
   onAnalyze,
   advancedMode,
@@ -137,6 +139,18 @@ export function UploadPanel({
                 className="w-full h-64 object-contain bg-black/5"
               />
             </div>
+
+            <button
+              onClick={onUploadNew}
+              disabled={isAnalyzing}
+              className={`w-full py-3 rounded-xl border transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                isDarkMode
+                  ? "border-white/20 text-[#E3E9F1] hover:bg-white/5"
+                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Upload a new image
+            </button>
 
             <button
               onClick={onAnalyze}

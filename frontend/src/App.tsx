@@ -1,16 +1,34 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
 import { UploadPanel } from "./components/UploadPanel";
 import { ResultsDashboard } from "./components/ResultsDashboard";
 import { PDFReportSection } from "./components/PDFReportSection";
 import { Footer } from "./components/Footer";
-import { AuthModal } from "./components/AuthModal";
 
 export interface PredictionResult {
   is_defective: boolean;
   defect_ratio: number;
+  defect_ratio_on_nut?: number;
+  defect_ratio_image?: number;
+  nut_pixel_count?: number;
+  defect_pixel_count_on_nut?: number;
+  defect_pixel_count_image?: number;
+  reject_threshold_on_nut?: number;
+  quality_decision?: "ACCEPT" | "REJECT";
   class_pixel_percentages: {
+    bent: number;
+    color: number;
+    flip: number;
+    scratch: number;
+  };
+  class_pixel_percentages_on_nut?: {
+    bent: number;
+    color: number;
+    flip: number;
+    scratch: number;
+  };
+  class_pixel_percentages_image?: {
     bent: number;
     color: number;
     flip: number;
@@ -49,17 +67,7 @@ export default function App() {
   const [advancedMode, setAdvancedMode] = useState(true);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showAuth, setShowAuth] = useState(false);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("authToken"));
-  const [userEmail, setUserEmail] = useState<string | null>(() => localStorage.getItem("authEmail"));
   const [activeSection, setActiveSection] = useState<string>("dashboard");
-  const [modalTarget, setModalTarget] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      setModalTarget(document.body);
-    }
-  }, []);
 
   const handleImageUpload = (file: File, previewUrl: string) => {
     setUploadedFile(file);
@@ -80,7 +88,6 @@ export default function App() {
       formData.append("image", uploadedFile);
       const response = await fetch(API_URL, {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: formData,
       });
       if (!response.ok) {
@@ -122,32 +129,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleAuthSuccess = (newToken: string, email: string) => {
-    setToken(newToken);
-    setUserEmail(email);
-    localStorage.setItem("authToken", newToken);
-    localStorage.setItem("authEmail", email);
-    setActiveSection("account");
-  };
-
-  const apiBase = API_URL.replace(/\/predict$/, "");
-
-  const handleAuthClick = () => {
-    if (token) {
-      navigateTo("account");
-    } else {
-      setShowAuth(true);
-    }
-  };
-
-  const handleLogout = () => {
-    setToken(null);
-    setUserEmail(null);
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("authEmail");
-    navigateTo("dashboard");
-  };
-
   return (
     <div
       className={`min-h-screen transition-colors duration-300 ${
@@ -160,9 +141,7 @@ export default function App() {
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         onNavigate={navigateTo}
-        onAuthClick={handleAuthClick}
         activeSection={activeSection}
-        userEmail={userEmail}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -175,6 +154,7 @@ export default function App() {
             isDarkMode={isDarkMode}
             uploadedImage={uploadedImage}
             onImageUpload={handleImageUpload}
+            onUploadNew={handleUploadClick}
             isAnalyzing={isAnalyzing}
             onAnalyze={handleAnalyze}
             advancedMode={advancedMode}
@@ -186,7 +166,12 @@ export default function App() {
         {activeSection === "results" && (
           result && uploadedImage ? (
             <>
-              <ResultsDashboard isDarkMode={isDarkMode} uploadedImage={uploadedImage} result={result} />
+              <ResultsDashboard
+                isDarkMode={isDarkMode}
+                uploadedImage={uploadedImage}
+                result={result}
+                onUploadNew={handleUploadClick}
+              />
               <PDFReportSection
                 isDarkMode={isDarkMode}
                 result={result}
@@ -230,60 +215,9 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {activeSection === "account" && (
-          <div className={`rounded-2xl p-8 border ${isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white shadow"}`}>
-            <h3 className="text-2xl font-semibold mb-3">Account</h3>
-            {userEmail ? (
-              <div className="space-y-4">
-                <p className={isDarkMode ? "text-[#E3E9F1]/80" : "text-gray-700"}>Signed in as <strong>{userEmail}</strong></p>
-                <div className="flex gap-3">
-                  <button
-                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2979FF] to-[#00E676] text-white shadow hover:shadow-lg"
-                    onClick={() => navigateTo("upload")}
-                  >
-                    Go to Upload
-                  </button>
-                  <button
-                    className={`px-4 py-2 rounded-lg border ${isDarkMode ? "border-white/20 text-[#E3E9F1]" : "border-gray-300 text-gray-700"} hover:shadow`}
-                    onClick={handleLogout}
-                  >
-                    Sign out
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className={isDarkMode ? "text-[#E3E9F1]/80" : "text-gray-700"}>You are not signed in.</p>
-                <div className="flex gap-3">
-                  <button
-                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2979FF] to-[#00E676] text-white shadow hover:shadow-lg"
-                    onClick={() => setShowAuth(true)}
-                  >
-                    Sign in / Sign up
-                  </button>
-                  <button
-                    className={`px-4 py-2 rounded-lg border ${isDarkMode ? "border-white/20 text-[#E3E9F1]" : "border-gray-300 text-gray-700"} hover:shadow`}
-                    onClick={() => navigateTo("dashboard")}
-                  >
-                    Back to Dashboard
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </main>
 
       <Footer isDarkMode={isDarkMode} />
-
-      <AuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        onAuthSuccess={handleAuthSuccess}
-        apiBase={apiBase}
-        portalTarget={modalTarget}
-      />
     </div>
   );
 }

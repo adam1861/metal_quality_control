@@ -52,8 +52,17 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
       const topPct = ((result.dominant_defect_ratio ?? 0) * 100).toFixed(2);
       doc.text(`Top defect: ${result.dominant_defect || "none"} (${topPct}%)`, 14, y);
       y += 6;
-      doc.text(`Overall defect: ${(result.defect_ratio * 100).toFixed(2)}%`, 14, y);
-      y += 10;
+      doc.text(`Defect on nut: ${(result.defect_ratio * 100).toFixed(2)}%`, 14, y);
+      y += 6;
+      if (typeof result.defect_ratio_image === "number") {
+        doc.text(`Defect on image: ${(result.defect_ratio_image * 100).toFixed(2)}%`, 14, y);
+        y += 6;
+      }
+      if (result.quality_decision) {
+        doc.text(`Decision: ${result.quality_decision}`, 14, y);
+        y += 6;
+      }
+      y += 4;
 
       if (reportOptions.includePerClass) {
         doc.text("Per-class pixel percentages:", 14, y);
