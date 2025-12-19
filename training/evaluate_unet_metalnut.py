@@ -208,16 +208,56 @@ def binary_metrics_from_counts(*, tp: int, fp: int, fn: int, tn: int) -> BinaryC
     )
 
 
+def dominant_class_from_flat(mask_flat: torch.Tensor, *, num_classes: int) -> int:
+    """Return the dominant non-background class id for an image.
+
+    - Returns 0 if no defect pixels are present.
+    - If multiple defect classes are present, returns the class with the most pixels.
+    """
+    if mask_flat.numel() == 0:
+        return 0
+    counts = torch.bincount(mask_flat.to(torch.int64), minlength=num_classes)
+    if int(counts[1:].sum().item()) == 0:
+        return 0
+    return int(torch.argmax(counts[1:]).item() + 1)
+
+
+def _print_image_cm(cm: np.ndarray) -> None:
+    labels = [f"{i}:{CLASS_ID_TO_NAME.get(i, str(i))}" for i in range(cm.shape[0])]
+    col_widths = [max(len(l), 7) for l in labels]
+    header = "true\\pred".ljust(10) + "  " + "  ".join(labels[i].ljust(col_widths[i]) for i in range(len(labels)))
+    print(header)
+    print("-" * len(header))
+    for i, row in enumerate(cm):
+        line = labels[i].ljust(10) + "  " + "  ".join(str(int(row[j])).ljust(col_widths[j]) for j in range(len(labels)))
+        print(line)
+
+
+def _image_precision_recall_from_cm(cm: np.ndarray, cls_id: int) -> tuple[float, float, int, int, int]:
+    """Return (precision, recall, correct, predicted, support) for a class id."""
+    correct = int(cm[cls_id, cls_id])
+    predicted = int(cm[:, cls_id].sum())
+    support = int(cm[cls_id, :].sum())
+    precision = (correct / predicted) if predicted else 0.0
+    recall = (correct / support) if support else 0.0
+    return float(precision), float(recall), correct, predicted, support
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate the trained U-Net metal_nut segmentation model.")
     parser.add_argument("--data-dir", type=Path, default=Path("data/processed/metal_nut"))
     parser.add_argument("--weights-path", type=Path, default=Path("models/best_unet_metalnut_colorscratch.pth"))
-    parser.add_argument("--split", choices=("train", "val", "test"), default="test")
+    parser.add_argument("--split", choices=("train", "val", "test", "all"), default="test")
     parser.add_argument("--image-size", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--device", type=str, default=None, help="Force device, e.g., cpu or cuda.")
     parser.add_argument("--output-json", type=Path, default=None, help="Optional path to write metrics JSON.")
+    parser.add_argument(
+        "--image-class-precision-only",
+        action="store_true",
+        help="Print only image-level class precision for color/scratch (dominant class), instead of full pixel metrics.",
+    )
     parser.add_argument(
         "--no-nut-metrics",
         action="store_true",
@@ -254,17 +294,16 @@ def _print_table(per_class: list[PerClassMetrics]) -> None:
 def main() -> None:
     args = parse_args()
 
-    images_dir = args.data_dir / f"images/{args.split}"
-    masks_dir = args.data_dir / f"masks/{args.split}"
-    if not images_dir.exists() or not masks_dir.exists():
-        raise FileNotFoundError(f"Missing expected split directories: {images_dir} and {masks_dir}")
+    splits = ("train", "val", "test") if args.split == "all" else (args.split,)
+    for split in splits:
+        images_dir = args.data_dir / f"images/{split}"
+        masks_dir = args.data_dir / f"masks/{split}"
+        if not images_dir.exists() or not masks_dir.exists():
+            raise FileNotFoundError(f"Missing expected split directories: {images_dir} and {masks_dir}")
     if not args.weights_path.exists():
         raise FileNotFoundError(f"Model weights not found: {args.weights_path}")
 
     device = torch.device(args.device) if args.device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    ds = MetalNutSegmentationDataset(images_dir=images_dir, masks_dir=masks_dir, image_size=(args.image_size, args.image_size))
-    dl = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     model = UNet(in_channels=3, num_classes=NUM_CLASSES, base_channels=32).to(device)
     try:
@@ -279,91 +318,137 @@ def main() -> None:
 
     img_tp = img_fp = img_fn = img_tn = 0
     img_tp_nut = img_fp_nut = img_fn_nut = img_tn_nut = 0
+    img_cm_all = torch.zeros((NUM_CLASSES, NUM_CLASSES), dtype=torch.int64)
+    img_cm_nut = torch.zeros((NUM_CLASSES, NUM_CLASSES), dtype=torch.int64)
 
-    for images, masks, names in tqdm(dl, desc=f"Eval ({args.split})"):
-        images = images.to(device)
-        masks = masks.to(device)
-        with torch.no_grad():
-            logits = model(images)
-            preds = torch.argmax(logits, dim=1)
+    for split in splits:
+        images_dir = args.data_dir / f"images/{split}"
+        masks_dir = args.data_dir / f"masks/{split}"
+        ds = MetalNutSegmentationDataset(
+            images_dir=images_dir, masks_dir=masks_dir, image_size=(args.image_size, args.image_size)
+        )
+        dl = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-        preds_cpu = preds.detach().to("cpu")
-        masks_cpu = masks.detach().to("cpu")
+        for images, masks, names in tqdm(dl, desc=f"Eval ({split})"):
+            images = images.to(device)
+            masks = masks.to(device)
+            with torch.no_grad():
+                logits = model(images)
+                preds = torch.argmax(logits, dim=1)
 
-        cm_all += _confusion_matrix_from_flat(masks_cpu.flatten(), preds_cpu.flatten(), num_classes=NUM_CLASSES)
+            preds_cpu = preds.detach().to("cpu")
+            masks_cpu = masks.detach().to("cpu")
 
-        # Image-level detection: "any defect present?"
-        for i in range(len(names)):
-            gt_def = bool((masks_cpu[i] != 0).any().item())
-            pred_def = bool((preds_cpu[i] != 0).any().item())
-            if gt_def and pred_def:
-                img_tp += 1
-            elif (not gt_def) and pred_def:
-                img_fp += 1
-            elif gt_def and (not pred_def):
-                img_fn += 1
-            else:
-                img_tn += 1
+            cm_all += _confusion_matrix_from_flat(masks_cpu.flatten(), preds_cpu.flatten(), num_classes=NUM_CLASSES)
 
-        if not args.no_nut_metrics:
-            # Restrict metrics to nut pixels only.
-            for i, name in enumerate(names):
-                img_path = images_dir / name
-                if not img_path.exists():
-                    continue
-                pil_img = Image.open(img_path).convert("RGB")
-                pil_img = _pil_resize(pil_img, (args.image_size, args.image_size))
-                nut = segment_nut_mask(pil_img)
-                nut_flat = torch.from_numpy(nut.astype(np.bool_)).flatten()
-
-                t = masks_cpu[i].flatten()
-                p = preds_cpu[i].flatten()
-                t_sel = t[nut_flat]
-                p_sel = p[nut_flat]
-                cm_on_nut += _confusion_matrix_from_flat(t_sel, p_sel, num_classes=NUM_CLASSES)
-
-                gt_def_nut = bool((t != 0).any().item())
-                pred_def_nut = bool((p_sel != 0).any().item()) if p_sel.numel() else bool((p != 0).any().item())
-                if gt_def_nut and pred_def_nut:
-                    img_tp_nut += 1
-                elif (not gt_def_nut) and pred_def_nut:
-                    img_fp_nut += 1
-                elif gt_def_nut and (not pred_def_nut):
-                    img_fn_nut += 1
+            # Image-level detection: "any defect present?"
+            for i in range(len(names)):
+                gt_def = bool((masks_cpu[i] != 0).any().item())
+                pred_def = bool((preds_cpu[i] != 0).any().item())
+                if gt_def and pred_def:
+                    img_tp += 1
+                elif (not gt_def) and pred_def:
+                    img_fp += 1
+                elif gt_def and (not pred_def):
+                    img_fn += 1
                 else:
-                    img_tn_nut += 1
+                    img_tn += 1
+                gt_label = dominant_class_from_flat(masks_cpu[i].flatten(), num_classes=NUM_CLASSES)
+                pred_label = dominant_class_from_flat(preds_cpu[i].flatten(), num_classes=NUM_CLASSES)
+                img_cm_all[gt_label, pred_label] += 1
+
+            if not args.no_nut_metrics:
+                # Restrict metrics to nut pixels only.
+                for i, name in enumerate(names):
+                    img_path = images_dir / name
+                    if not img_path.exists():
+                        continue
+                    pil_img = Image.open(img_path).convert("RGB")
+                    pil_img = _pil_resize(pil_img, (args.image_size, args.image_size))
+                    nut = segment_nut_mask(pil_img)
+                    nut_flat = torch.from_numpy(nut.astype(np.bool_)).flatten()
+
+                    t = masks_cpu[i].flatten()
+                    p = preds_cpu[i].flatten()
+                    t_sel = t[nut_flat]
+                    p_sel = p[nut_flat]
+                    cm_on_nut += _confusion_matrix_from_flat(t_sel, p_sel, num_classes=NUM_CLASSES)
+
+                    gt_def_nut = bool((t_sel != 0).any().item()) if t_sel.numel() else bool((t != 0).any().item())
+                    pred_def_nut = bool((p_sel != 0).any().item()) if p_sel.numel() else bool((p != 0).any().item())
+                    if gt_def_nut and pred_def_nut:
+                        img_tp_nut += 1
+                    elif (not gt_def_nut) and pred_def_nut:
+                        img_fp_nut += 1
+                    elif gt_def_nut and (not pred_def_nut):
+                        img_fn_nut += 1
+                    else:
+                        img_tn_nut += 1
+
+                    gt_label_nut = (
+                        dominant_class_from_flat(t_sel, num_classes=NUM_CLASSES)
+                        if t_sel.numel()
+                        else dominant_class_from_flat(t, num_classes=NUM_CLASSES)
+                    )
+                    pred_label_nut = (
+                        dominant_class_from_flat(p_sel, num_classes=NUM_CLASSES)
+                        if p_sel.numel()
+                        else dominant_class_from_flat(p, num_classes=NUM_CLASSES)
+                    )
+                    img_cm_nut[gt_label_nut, pred_label_nut] += 1
 
     per_class_all, summary_all, details_all = metrics_from_confusion_matrix(cm_all.numpy())
 
-    print("\n=== Metrics (all pixels) ===")
-    print(f"Pixel accuracy: {summary_all.pixel_accuracy:.4f}")
-    print(f"Mean IoU (all classes): {summary_all.mean_iou_all:.4f}")
-    print(f"Mean IoU (defects only, no background): {summary_all.mean_iou_no_background:.4f}")
-    print(
-        "Macro (defects only) — "
-        f"Precision: {summary_all.macro_precision_no_background:.4f}  "
-        f"Recall: {summary_all.macro_recall_no_background:.4f}  "
-        f"F1: {summary_all.macro_f1_no_background:.4f}"
-    )
-    print(
-        "Binary (any defect vs background) — "
-        f"Precision: {summary_all.defect_binary_precision:.4f}  "
-        f"Recall: {summary_all.defect_binary_recall:.4f}  "
-        f"F1: {summary_all.defect_binary_f1:.4f}  "
-        f"IoU: {summary_all.defect_binary_iou:.4f}  "
-        f"Dice: {summary_all.defect_binary_dice:.4f}"
-    )
-    img_metrics_all = binary_metrics_from_counts(tp=img_tp, fp=img_fp, fn=img_fn, tn=img_tn)
-    print(
-        "Image-level (any defect present?) — "
-        f"Acc: {img_metrics_all.accuracy:.4f}  "
-        f"Precision: {img_metrics_all.precision:.4f}  "
-        f"Recall: {img_metrics_all.recall:.4f}  "
-        f"F1: {img_metrics_all.f1:.4f}  "
-        f"(TP/FP/FN/TN: {img_metrics_all.tp}/{img_metrics_all.fp}/{img_metrics_all.fn}/{img_metrics_all.tn})"
-    )
-    print("\nPer-class (all pixels):")
-    _print_table(per_class_all)
+    img_cm_np = img_cm_all.numpy()
+    img_acc = float(np.trace(img_cm_np) / float(img_cm_np.sum())) if int(img_cm_np.sum()) else 0.0
+    color_prec, color_rec, color_correct, color_pred, color_sup = _image_precision_recall_from_cm(img_cm_np, 1)
+    scratch_prec, scratch_rec, scratch_correct, scratch_pred, scratch_sup = _image_precision_recall_from_cm(img_cm_np, 2)
+
+    if args.image_class_precision_only and args.no_nut_metrics:
+        print(f"Image-level precision (dominant class) — color: {color_prec:.4f}  scratch: {scratch_prec:.4f}")
+        print(f"  color: {color_correct}/{color_pred} (predicted color)")
+        print(f"  scratch: {scratch_correct}/{scratch_pred} (predicted scratch)")
+
+    if not args.image_class_precision_only:
+        print("\n=== Metrics (all pixels) ===")
+        print(f"Pixel accuracy: {summary_all.pixel_accuracy:.4f}")
+        print(f"Mean IoU (all classes): {summary_all.mean_iou_all:.4f}")
+        print(f"Mean IoU (defects only, no background): {summary_all.mean_iou_no_background:.4f}")
+        print(
+            "Macro (defects only) — "
+            f"Precision: {summary_all.macro_precision_no_background:.4f}  "
+            f"Recall: {summary_all.macro_recall_no_background:.4f}  "
+            f"F1: {summary_all.macro_f1_no_background:.4f}"
+        )
+        print(
+            "Binary (any defect vs background) — "
+            f"Precision: {summary_all.defect_binary_precision:.4f}  "
+            f"Recall: {summary_all.defect_binary_recall:.4f}  "
+            f"F1: {summary_all.defect_binary_f1:.4f}  "
+            f"IoU: {summary_all.defect_binary_iou:.4f}  "
+            f"Dice: {summary_all.defect_binary_dice:.4f}"
+        )
+        img_metrics_all = binary_metrics_from_counts(tp=img_tp, fp=img_fp, fn=img_fn, tn=img_tn)
+        print(
+            "Image-level (any defect present?) — "
+            f"Acc: {img_metrics_all.accuracy:.4f}  "
+            f"Precision: {img_metrics_all.precision:.4f}  "
+            f"Recall: {img_metrics_all.recall:.4f}  "
+            f"F1: {img_metrics_all.f1:.4f}  "
+            f"(TP/FP/FN/TN: {img_metrics_all.tp}/{img_metrics_all.fp}/{img_metrics_all.fn}/{img_metrics_all.tn})"
+        )
+        print(f"Image-level (dominant class: good/color/scratch) — Acc: {img_acc:.4f}")
+        _print_image_cm(img_cm_np)
+        print(
+            f"  color — precision: {color_prec:.4f} ({color_correct}/{color_pred})  "
+            f"recall: {color_rec:.4f} ({color_correct}/{color_sup})"
+        )
+        print(
+            f"  scratch — precision: {scratch_prec:.4f} ({scratch_correct}/{scratch_pred})  "
+            f"recall: {scratch_rec:.4f} ({scratch_correct}/{scratch_sup})"
+        )
+        print("\nPer-class (all pixels):")
+        _print_table(per_class_all)
 
     results: dict[str, Any] = {
         "split": args.split,
@@ -375,42 +460,83 @@ def main() -> None:
             "summary": asdict(summary_all),
             "per_class": [asdict(m) for m in per_class_all],
             "image_level_any_defect": asdict(binary_metrics_from_counts(tp=img_tp, fp=img_fp, fn=img_fn, tn=img_tn)),
+            "image_level_dominant_class": {
+                "accuracy": img_acc,
+                "confusion_matrix": img_cm_np.tolist(),  # rows=true, cols=pred
+                "color": {
+                    "precision": color_prec,
+                    "recall": color_rec,
+                    "correct": color_correct,
+                    "predicted": color_pred,
+                    "support": color_sup,
+                },
+                "scratch": {
+                    "precision": scratch_prec,
+                    "recall": scratch_rec,
+                    "correct": scratch_correct,
+                    "predicted": scratch_pred,
+                    "support": scratch_sup,
+                },
+            },
             **details_all,
         },
     }
 
     if not args.no_nut_metrics:
         per_class_nut, summary_nut, details_nut = metrics_from_confusion_matrix(cm_on_nut.numpy())
+        img_cm_nut_np = img_cm_nut.numpy()
+        img_acc_nut = float(np.trace(img_cm_nut_np) / float(img_cm_nut_np.sum())) if int(img_cm_nut_np.sum()) else 0.0
+        color_prec_n, color_rec_n, color_correct_n, color_pred_n, color_sup_n = _image_precision_recall_from_cm(
+            img_cm_nut_np, 1
+        )
+        scratch_prec_n, scratch_rec_n, scratch_correct_n, scratch_pred_n, scratch_sup_n = _image_precision_recall_from_cm(
+            img_cm_nut_np, 2
+        )
 
-        print("\n=== Metrics (nut pixels only) ===")
-        print(f"Pixel accuracy (on nut): {summary_nut.pixel_accuracy:.4f}")
-        print(f"Mean IoU (all classes, on nut): {summary_nut.mean_iou_all:.4f}")
-        print(f"Mean IoU (defects only, on nut): {summary_nut.mean_iou_no_background:.4f}")
-        print(
-            "Macro (defects only, on nut) — "
-            f"Precision: {summary_nut.macro_precision_no_background:.4f}  "
-            f"Recall: {summary_nut.macro_recall_no_background:.4f}  "
-            f"F1: {summary_nut.macro_f1_no_background:.4f}"
-        )
-        print(
-            "Binary (any defect vs background, on nut) — "
-            f"Precision: {summary_nut.defect_binary_precision:.4f}  "
-            f"Recall: {summary_nut.defect_binary_recall:.4f}  "
-            f"F1: {summary_nut.defect_binary_f1:.4f}  "
-            f"IoU: {summary_nut.defect_binary_iou:.4f}  "
-            f"Dice: {summary_nut.defect_binary_dice:.4f}"
-        )
-        img_metrics_nut = binary_metrics_from_counts(tp=img_tp_nut, fp=img_fp_nut, fn=img_fn_nut, tn=img_tn_nut)
-        print(
-            "Image-level (any defect present?, on nut) — "
-            f"Acc: {img_metrics_nut.accuracy:.4f}  "
-            f"Precision: {img_metrics_nut.precision:.4f}  "
-            f"Recall: {img_metrics_nut.recall:.4f}  "
-            f"F1: {img_metrics_nut.f1:.4f}  "
-            f"(TP/FP/FN/TN: {img_metrics_nut.tp}/{img_metrics_nut.fp}/{img_metrics_nut.fn}/{img_metrics_nut.tn})"
-        )
-        print("\nPer-class (nut pixels only):")
-        _print_table(per_class_nut)
+        if args.image_class_precision_only:
+            print(f"Image-level precision (dominant class, on nut) — color: {color_prec_n:.4f}  scratch: {scratch_prec_n:.4f}")
+            print(f"  color: {color_correct_n}/{color_pred_n} (predicted color)")
+            print(f"  scratch: {scratch_correct_n}/{scratch_pred_n} (predicted scratch)")
+        else:
+            print("\n=== Metrics (nut pixels only) ===")
+            print(f"Pixel accuracy (on nut): {summary_nut.pixel_accuracy:.4f}")
+            print(f"Mean IoU (all classes, on nut): {summary_nut.mean_iou_all:.4f}")
+            print(f"Mean IoU (defects only, on nut): {summary_nut.mean_iou_no_background:.4f}")
+            print(
+                "Macro (defects only, on nut) — "
+                f"Precision: {summary_nut.macro_precision_no_background:.4f}  "
+                f"Recall: {summary_nut.macro_recall_no_background:.4f}  "
+                f"F1: {summary_nut.macro_f1_no_background:.4f}"
+            )
+            print(
+                "Binary (any defect vs background, on nut) — "
+                f"Precision: {summary_nut.defect_binary_precision:.4f}  "
+                f"Recall: {summary_nut.defect_binary_recall:.4f}  "
+                f"F1: {summary_nut.defect_binary_f1:.4f}  "
+                f"IoU: {summary_nut.defect_binary_iou:.4f}  "
+                f"Dice: {summary_nut.defect_binary_dice:.4f}"
+            )
+            img_metrics_nut = binary_metrics_from_counts(tp=img_tp_nut, fp=img_fp_nut, fn=img_fn_nut, tn=img_tn_nut)
+            print(
+                "Image-level (any defect present?, on nut) — "
+                f"Acc: {img_metrics_nut.accuracy:.4f}  "
+                f"Precision: {img_metrics_nut.precision:.4f}  "
+                f"Recall: {img_metrics_nut.recall:.4f}  "
+                f"F1: {img_metrics_nut.f1:.4f}  "
+                f"(TP/FP/FN/TN: {img_metrics_nut.tp}/{img_metrics_nut.fp}/{img_metrics_nut.fn}/{img_metrics_nut.tn})"
+            )
+            print(f"Image-level (dominant class, on nut) — Acc: {img_acc_nut:.4f}")
+            _print_image_cm(img_cm_nut_np)
+            print(
+                f"  color — precision: {color_prec_n:.4f} ({color_correct_n}/{color_pred_n})  "
+                f"recall: {color_rec_n:.4f} ({color_correct_n}/{color_sup_n})"
+            )
+            print(
+                f"  scratch — precision: {scratch_prec_n:.4f} ({scratch_correct_n}/{scratch_pred_n})  "
+                f"recall: {scratch_rec_n:.4f} ({scratch_correct_n}/{scratch_sup_n})"
+            )
+            print("\nPer-class (nut pixels only):")
+            _print_table(per_class_nut)
 
         results["nut_pixels_only"] = {
             "summary": asdict(summary_nut),
@@ -418,6 +544,24 @@ def main() -> None:
             "image_level_any_defect": asdict(
                 binary_metrics_from_counts(tp=img_tp_nut, fp=img_fp_nut, fn=img_fn_nut, tn=img_tn_nut)
             ),
+            "image_level_dominant_class": {
+                "accuracy": img_acc_nut,
+                "confusion_matrix": img_cm_nut_np.tolist(),  # rows=true, cols=pred
+                "color": {
+                    "precision": color_prec_n,
+                    "recall": color_rec_n,
+                    "correct": color_correct_n,
+                    "predicted": color_pred_n,
+                    "support": color_sup_n,
+                },
+                "scratch": {
+                    "precision": scratch_prec_n,
+                    "recall": scratch_rec_n,
+                    "correct": scratch_correct_n,
+                    "predicted": scratch_pred_n,
+                    "support": scratch_sup_n,
+                },
+            },
             **details_nut,
         }
 

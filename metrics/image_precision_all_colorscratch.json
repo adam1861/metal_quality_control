@@ -1,0 +1,267 @@
+{
+  "split": "all",
+  "weights_path": "models/best_unet_metalnut_colorscratch.pth",
+  "data_dir": "data/processed/metal_nut",
+  "image_size": 256,
+  "device": "cuda",
+  "all_pixels": {
+    "summary": {
+      "pixel_accuracy": 0.9917546714224467,
+      "mean_iou_all": 0.6027214122356858,
+      "mean_iou_no_background": 0.4082249242213684,
+      "macro_f1_no_background": 0.5767845251091541,
+      "macro_precision_no_background": 0.4179844390819611,
+      "macro_recall_no_background": 0.9436061126135153,
+      "defect_binary_precision": 0.4399814841297917,
+      "defect_binary_recall": 0.9506659727756184,
+      "defect_binary_f1": 0.6015549426801408,
+      "defect_binary_iou": 0.4301598690141104,
+      "defect_binary_dice": 0.6015549426801408
+    },
+    "per_class": [
+      {
+        "class_id": 0,
+        "class_name": "background",
+        "support": 18685854,
+        "precision": 0.9996728165506613,
+        "recall": 0.9920363821744513,
+        "f1": 0.9958399598935969,
+        "iou": 0.9917143882643202,
+        "dice": 0.9958399598935969,
+        "specificity": 0.9506659727756184
+      },
+      {
+        "class_id": 1,
+        "class_name": "color",
+        "support": 33978,
+        "precision": 0.3525913055100745,
+        "recall": 0.9316616634292778,
+        "f1": 0.5115749157637021,
+        "iou": 0.34370215953877725,
+        "dice": 0.5115749157637021,
+        "specificity": 0.996904103754948
+      },
+      {
+        "class_id": 2,
+        "class_name": "scratch",
+        "support": 89000,
+        "precision": 0.4833775726538477,
+        "recall": 0.9555505617977528,
+        "f1": 0.6419941344546062,
+        "iou": 0.4727476889039596,
+        "dice": 0.6419941344546062,
+        "specificity": 0.9951445611264033
+      }
+    ],
+    "image_level_any_defect": {
+      "num_images": 287,
+      "tp": 45,
+      "fp": 167,
+      "fn": 0,
+      "tn": 75,
+      "accuracy": 0.4181184668989547,
+      "precision": 0.21226415094339623,
+      "recall": 1.0,
+      "f1": 0.3501945525291829
+    },
+    "image_level_dominant_class": {
+      "accuracy": 0.4181184668989547,
+      "confusion_matrix": [
+        [
+          75,
+          125,
+          42
+        ],
+        [
+          0,
+          22,
+          0
+        ],
+        [
+          0,
+          0,
+          23
+        ]
+      ],
+      "color": {
+        "precision": 0.14965986394557823,
+        "recall": 1.0,
+        "correct": 22,
+        "predicted": 147,
+        "support": 22
+      },
+      "scratch": {
+        "precision": 0.35384615384615387,
+        "recall": 1.0,
+        "correct": 23,
+        "predicted": 65,
+        "support": 23
+      }
+    },
+    "confusion_matrix": [
+      [
+        18537047,
+        57935,
+        90872
+      ],
+      [
+        2301,
+        31656,
+        21
+      ],
+      [
+        3766,
+        190,
+        85044
+      ]
+    ],
+    "confusion_matrix_normalized_by_true": [
+      [
+        0.9920363821744513,
+        0.003100473759454612,
+        0.004863144066094062
+      ],
+      [
+        0.0677202895991524,
+        0.9316616634292778,
+        0.0006180469715698393
+      ],
+      [
+        0.04231460674157304,
+        0.0021348314606741575,
+        0.9555505617977528
+      ]
+    ],
+    "total_pixels": 18808832
+  },
+  "nut_pixels_only": {
+    "summary": {
+      "pixel_accuracy": 0.9854029981172713,
+      "mean_iou_all": 0.5933691408739389,
+      "mean_iou_no_background": 0.39743799226915755,
+      "macro_f1_no_background": 0.5632285608771135,
+      "macro_precision_no_background": 0.40673797593918787,
+      "macro_recall_no_background": 0.9412755774283432,
+      "defect_binary_precision": 0.4580926735038947,
+      "defect_binary_recall": 0.9531422271223815,
+      "defect_binary_f1": 0.6187878018863935,
+      "defect_binary_iou": 0.4480034296913278,
+      "defect_binary_dice": 0.6187878018863935
+    },
+    "per_class": [
+      {
+        "class_id": 0,
+        "class_name": "background",
+        "support": 7929002,
+        "precision": 0.9994022643377607,
+        "recall": 0.9858123380470833,
+        "f1": 0.9925607857939446,
+        "iou": 0.9852314380835016,
+        "dice": 0.9925607857939447,
+        "specificity": 0.9531422271223815
+      },
+      {
+        "class_id": 1,
+        "class_name": "color",
+        "support": 15017,
+        "precision": 0.31839130534473664,
+        "recall": 0.924685356595858,
+        "f1": 0.4736824151458298,
+        "iou": 0.3103432862506705,
+        "dice": 0.47368241514582976,
+        "specificity": 0.9962905030163762
+      },
+      {
+        "class_id": 2,
+        "class_name": "scratch",
+        "support": 84753,
+        "precision": 0.4950846465336391,
+        "recall": 0.9578657982608285,
+        "f1": 0.6527747066083971,
+        "iou": 0.48453269828764467,
+        "dice": 0.6527747066083971,
+        "specificity": 0.9895778194891024
+      }
+    ],
+    "image_level_any_defect": {
+      "num_images": 287,
+      "tp": 45,
+      "fp": 152,
+      "fn": 0,
+      "tn": 90,
+      "accuracy": 0.47038327526132406,
+      "precision": 0.22842639593908629,
+      "recall": 1.0,
+      "f1": 0.37190082644628103
+    },
+    "image_level_dominant_class": {
+      "accuracy": 0.47038327526132406,
+      "confusion_matrix": [
+        [
+          90,
+          108,
+          44
+        ],
+        [
+          0,
+          22,
+          0
+        ],
+        [
+          0,
+          0,
+          23
+        ]
+      ],
+      "color": {
+        "precision": 0.16923076923076924,
+        "recall": 1.0,
+        "correct": 22,
+        "predicted": 130,
+        "support": 22
+      },
+      "scratch": {
+        "precision": 0.34328358208955223,
+        "recall": 1.0,
+        "correct": 23,
+        "predicted": 67,
+        "support": 23
+      }
+    },
+    "confusion_matrix": [
+      [
+        7816508,
+        29717,
+        82777
+      ],
+      [
+        1114,
+        13886,
+        17
+      ],
+      [
+        3561,
+        10,
+        81182
+      ]
+    ],
+    "confusion_matrix_normalized_by_true": [
+      [
+        0.9858123380470833,
+        0.003747886556214767,
+        0.01043977539670188
+      ],
+      [
+        0.07418259306119732,
+        0.924685356595858,
+        0.0011320503429446628
+      ],
+      [
+        0.042016211815510955,
+        0.00011798992366051939,
+        0.9578657982608285
+      ]
+    ],
+    "total_pixels": 8028772
+  }
+}
