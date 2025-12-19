@@ -46,7 +46,7 @@ class Up(nn.Module):
 class UNet(nn.Module):
     """A light-weight U-Net for multi-class segmentation."""
 
-    def __init__(self, in_channels: int = 3, num_classes: int = 5, base_channels: int = 32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 3, base_channels: int = 32):
         super().__init__()
         c = base_channels
         self.inc = DoubleConv(in_channels, c)

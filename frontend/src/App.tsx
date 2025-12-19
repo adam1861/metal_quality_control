@@ -17,21 +17,15 @@ export interface PredictionResult {
   reject_threshold_on_nut?: number;
   quality_decision?: "ACCEPT" | "REJECT";
   class_pixel_percentages: {
-    bent: number;
     color: number;
-    flip: number;
     scratch: number;
   };
   class_pixel_percentages_on_nut?: {
-    bent: number;
     color: number;
-    flip: number;
     scratch: number;
   };
   class_pixel_percentages_image?: {
-    bent: number;
     color: number;
-    flip: number;
     scratch: number;
   };
   dominant_defect?: string;
@@ -199,9 +193,9 @@ export default function App() {
           <div className={`rounded-2xl p-8 border ${isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white shadow"}`}>
             <h3 className="text-2xl font-semibold mb-3">À propos</h3>
             <p className={isDarkMode ? "text-[#E3E9F1]/80" : "text-gray-700"}>
-              Détection multi-classes de défauts pour MVTec metal_nut (bent, color, flip, scratch) : préparation des
-              données, entraînement U-Net, inférence via API, et visualisation des résultats dans cette interface avec
-              génération de rapport PDF.
+              Détection de défauts de surface pour MVTec metal_nut (couleur, rayure) : préparation des données,
+              entraînement U-Net, inférence via API et visualisation des résultats dans cette interface avec génération
+              de rapport PDF.
             </p>
             <div className="mt-4 space-x-3">
               <button

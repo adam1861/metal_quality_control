@@ -18,10 +18,8 @@ You upload an image of a **metal nut**, and the system returns:
 The dataset and labels are based on MVTec AD `metal_nut`:
 
 - `0` = background/normal metal
-- `1` = bent
-- `2` = color
-- `3` = flip
-- `4` = scratch
+- `1` = color
+- `2` = scratch
 
 Code sources: `README.md`, `training/inference.py`, `api/main.py`.
 
@@ -74,7 +72,7 @@ This project uses a **U‑Net** implemented in PyTorch (`training/model.py`) to 
 That means:
 
 - Input: an RGB image
-- Output: for **every pixel**, the model predicts one of the 5 class IDs (0–4).
+- Output: for **every pixel**, the model predicts one of the 3 class IDs (0–2).
 
 U‑Net is not a “single yes/no classifier”; it produces a **mask** the same width/height as the input (after resizing).
 
@@ -93,7 +91,7 @@ The code uses a lightweight U‑Net:
   - Concatenate skip-connection features from the encoder (keeps detail)
   - Another `DoubleConv`
 - **Output head**
-  - A final `1×1` convolution (`nn.Conv2d`) producing `num_classes=5` channels (logits)
+  - A final `1×1` convolution (`nn.Conv2d`) producing `num_classes=3` channels (logits)
 
 Key point: skip connections are what let it keep fine details like thin scratches.
 
@@ -105,7 +103,7 @@ You want the system to answer:
 
 1) **Is there a defect?**  
 2) **Where exactly is it on the nut?**  
-3) **What type is it (bent/color/flip/scratch)?**
+3) **What type is it (color/scratch)?**
 
 A U‑Net is suitable because:
 
@@ -143,7 +141,7 @@ Output folders (created under `data/processed/metal_nut`):
 - `images/train`, `images/val`, `images/test`
 - `masks/train`, `masks/val`, `masks/test`
 
-Each mask is a grayscale PNG where pixel values are `{0,1,2,3,4}`.
+Each mask is a grayscale PNG where pixel values are `{0,1,2}`.
 
 ### Step B — Training: learning to predict class IDs
 
@@ -153,7 +151,7 @@ Each mask is a grayscale PNG where pixel values are `{0,1,2,3,4}`.
 - Optimizer: Adam
 - Metrics: pixel accuracy + IoU (intersection-over-union) per class and mean IoU
 - Best checkpoint selection: saves the weights with the lowest validation loss to:
-  - `models/best_unet_metalnut_multiclass.pth`
+  - `models/best_unet_metalnut_colorscratch.pth`
 
 That `.pth` file is a PyTorch `state_dict` (the learned weights).
 
@@ -297,12 +295,12 @@ This is a “map” of the repository. For datasets/build output, files are grou
   - Purpose: the PyTorch U‑Net architecture used for multi-class segmentation.
   - Key classes:
     - `DoubleConv`, `Down`, `Up` — building blocks.
-    - `UNet` — full model; outputs per-class logits shaped `[B, 5, H, W]`.
+    - `UNet` — full model; outputs per-class logits shaped `[B, 3, H, W]`.
 - `training/inference.py`
   - Purpose: load weights and run single-image inference, returning both mask + overlay visuals.
   - Key items:
     - `CLASS_ID_TO_NAME` and `CLASS_COLOR_MAP` — label names + RGB colors.
-    - `load_model(weights_path, device, num_classes=5)` — loads `state_dict` into `UNet`, sets `eval()`.
+    - `load_model(weights_path, device, num_classes=3)` — loads `state_dict` into `UNet`, sets `eval()`.
     - `predict_metal_nut_defects(model, image_input, device, image_size)` — returns:
       - `resized_mask` (`np.ndarray` of class IDs, resized back to original size),
       - `original_image` (`PIL.Image`),
@@ -316,12 +314,13 @@ This is a “map” of the repository. For datasets/build output, files are grou
     - Copies `train/good/*` into processed `train/` and generates all-zero masks.
     - Splits `test/<type>/*` into processed `train/val/test` according to `--train-ratio` and `--val-ratio` (per folder).
     - Converts `ground_truth/<type>/*_mask.png` into single-channel masks whose pixel values are class IDs.
-    - Prefixes filenames with the defect type (e.g., `bent_012.png`) so you can trace the source class later.
+    - Prefixes filenames with the defect type (e.g., `color_012.png`, `scratch_012.png`) so you can trace the source class later.
+    - Good samples are kept distinct across sources: `good_train_*.png` (from `train/good`) and `good_test_*.png` (from `test/good`).
   - Key items:
-    - `DEFECT_CLASS_MAP` (bent/color/flip/scratch → 1–4)
+    - `DEFECT_CLASS_MAP` (color/scratch → 1–2)
     - `create_mask(...)`, `split_test_images(...)`, `process_dataset(...)`
 - `training/train_unet_metalnut.py`
-  - Purpose: train the U‑Net on the processed dataset and save `models/best_unet_metalnut_multiclass.pth`.
+  - Purpose: train the U‑Net on the processed dataset and save `models/best_unet_metalnut_colorscratch.pth`.
   - Key items:
     - `train_one_epoch(...)`, `evaluate(...)` (pixel accuracy + per-class IoU + mean IoU)
     - CLI args include `--data-dir`, `--image-size`, `--epochs`, `--batch-size`, `--lr`, `--device`, `--weights-path`.
@@ -342,7 +341,7 @@ This is a “map” of the repository. For datasets/build output, files are grou
 
 - `frontend/src/main.tsx` — bootstraps React and renders the `App` component into `#root`.
 - `frontend/src/App.tsx`
-  - Main UI “router” (single-page state machine) with sections: `dashboard`, `upload`, `results`, `about`, `account`.
+  - Main UI “router” (single-page state machine) with sections: `dashboard`, `upload`, `results`, `about`.
   - Defines `PredictionResult` (shape of `/predict` response the UI expects).
   - Builds `API_URL`:
     - Uses `VITE_API_URL` if provided.
@@ -422,14 +421,14 @@ These are shadcn/ui-style wrappers around Radix UI primitives plus some helper u
 - `data/raw/metal_nut/` — raw MVTec AD dataset copy (expected input to preprocessing).
   - In this repo’s current contents:
     - `train/good/`: 220 images
-    - `test/`: bent 25, color 22, flip 23, good 22, scratch 23 (115 total)
+    - `test/`: color 22, good 22, scratch 23 (67 total)
     - `ground_truth/`: defect masks (binary masks per defect type)
   - Includes `license.txt` / `readme.txt` from MVTec (CC BY-NC-SA 4.0).
 - `data/processed/metal_nut/` — output of `training/preprocess_metal_nut.py` (images + single-channel class-ID masks).
   - In this repo’s current contents:
-    - `train/`: 274 image/mask pairs (good 220, bent 15, color 13, flip 13, scratch 13)
-    - `val/`: 21 image/mask pairs (bent 5, color 4, flip 4, good 4, scratch 4)
-    - `test/`: 27 image/mask pairs (bent 5, color 5, flip 6, good 5, scratch 6)
-- `models/best_unet_metalnut_multiclass.pth` — trained PyTorch weights loaded by `api/main.py`.
+    - `train/`: 259 image/mask pairs (good 233, color 13, scratch 13)
+    - `val/`: 12 image/mask pairs (good 4, color 4, scratch 4)
+    - `test/`: 16 image/mask pairs (good 5, color 5, scratch 6)
+- `models/best_unet_metalnut_colorscratch.pth` — trained PyTorch weights loaded by `api/main.py`.
 - `metal_nut/` — another copy of the raw dataset at repo root (same structure as `data/raw/metal_nut/`).
 - `__pycache__/` and `*.pyc` files — runtime Python caches (ignored by `.gitignore`, safe to delete).

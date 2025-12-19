@@ -6,6 +6,8 @@ from pathlib import Path
 from PIL import Image
 from torch.utils.data import Dataset
 import torchvision.transforms.functional as TF
+from torchvision.transforms import InterpolationMode
+import random
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -39,11 +41,15 @@ class MetalNutSegmentationDataset(Dataset):
         masks_dir: str | Path,
         image_size: tuple[int, int] | None = (256, 256),
         normalize: bool = True,
+        augment: bool = False,
+        seed: int | None = None,
     ):
         self.images_dir = Path(images_dir)
         self.masks_dir = Path(masks_dir)
         self.image_size = image_size
         self.normalize = normalize
+        self.augment = augment
+        self.rng = random.Random(seed)
         self.image_paths = _list_images(self.images_dir)
         if not self.image_paths:
             raise ValueError(f"No images found in {self.images_dir}")
@@ -59,6 +65,19 @@ class MetalNutSegmentationDataset(Dataset):
 
         image = Image.open(img_path).convert("RGB")
         mask = Image.open(mask_path).convert("L")
+
+        if self.augment:
+            if self.rng.random() < 0.5:
+                image = TF.hflip(image)
+                mask = TF.hflip(mask)
+            if self.rng.random() < 0.5:
+                image = TF.vflip(image)
+                mask = TF.vflip(mask)
+            # Rotate by right angles to preserve pixel labels cleanly.
+            angle = self.rng.choice([0, 90, 180, 270])
+            if angle:
+                image = TF.rotate(image, angle, interpolation=InterpolationMode.BILINEAR)
+                mask = TF.rotate(mask, angle, interpolation=InterpolationMode.NEAREST)
 
         if self.image_size:
             image = TF.resize(image, self.image_size)

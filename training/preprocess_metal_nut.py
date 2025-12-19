@@ -13,10 +13,8 @@ from PIL import Image
 import stat
 
 DEFECT_CLASS_MAP: Dict[str, int] = {
-    "bent": 1,
-    "color": 2,
-    "flip": 3,
-    "scratch": 4,
+    "color": 1,
+    "scratch": 2,
 }
 
 
@@ -129,10 +127,13 @@ def split_test_images(
     test_root: Path, train_ratio: float, val_ratio: float, rng: random.Random
 ) -> Dict[str, List[Tuple[Path, str]]]:
     splits: Dict[str, List[Tuple[Path, str]]] = {"train": [], "val": [], "test": []}
+    allowed_types = {"good", *DEFECT_CLASS_MAP.keys()}
     for defect_dir in sorted(test_root.iterdir()):
         if not defect_dir.is_dir():
             continue
         defect_type = defect_dir.name
+        if defect_type not in allowed_types:
+            continue
         image_paths = sorted([p for p in defect_dir.glob("*") if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp"}])
         if not image_paths:
             continue
@@ -164,12 +165,14 @@ def process_dataset(
     split_dirs = ensure_dirs(processed_dir)
     stats = defaultdict(int)
 
-    # Train split: only good samples, masks are zeros.
+    # Train split: only good samples from the raw train set, masks are zeros.
     for img_path in sorted(train_good_dir.glob("*")):
         if img_path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".bmp"}:
             continue
         mask_array = create_mask(img_path, "good", gt_root)
-        new_name = f"good_{img_path.name}"
+        # Use a distinct prefix so these do not collide with `test/good` files
+        # when those are also assigned to the processed train split.
+        new_name = f"good_train_{img_path.name}"
         copy_and_save(
             img_path,
             mask_array,
@@ -184,7 +187,8 @@ def process_dataset(
     for split_name, items in split_map.items():
         for img_path, defect_type in items:
             mask_array = create_mask(img_path, defect_type, gt_root)
-            prefix = defect_type if defect_type else "good"
+            # `test/good` file names often overlap with `train/good`; keep them distinct.
+            prefix = "good_test" if defect_type == "good" else defect_type
             new_name = f"{prefix}_{img_path.name}"
             copy_and_save(
                 img_path,

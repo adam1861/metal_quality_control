@@ -29,8 +29,12 @@ python training/train_unet_metalnut.py \
   --image-size 256 \
   --batch-size 4 \
   --epochs 50 \
-  --lr 1e-4
+  --lr 1e-4 \
+  --augment \
+  --balance-sampler \
+  --weights-path models/best_unet_metalnut_colorscratch.pth
 ```
+This creates a 3-class model (background, color, scratch) and saves weights to `models/best_unet_metalnut_colorscratch.pth`.
 
 5) Launch the FastAPI server  
 ```bash
@@ -71,4 +75,3 @@ frontend:
 cd frontend
 npm install
 npm run dev -- --host --port 5500
-

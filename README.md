@@ -1,13 +1,11 @@
 # Metal Nut Defect Segmentation (MVTec AD)
 
-End-to-end pipeline for multi-class defect segmentation on the MVTec AD **metal_nut** dataset: preprocessing, U-Net training, inference helpers, FastAPI serving, and a simple web UI.
+End-to-end pipeline for defect segmentation on the MVTec AD **metal_nut** dataset (color/scratch): preprocessing, U-Net training, inference helpers, FastAPI serving, and a simple web UI.
 
 ## Labels
 - 0: background / normal metal  
-- 1: bent  
-- 2: color  
-- 3: flip  
-- 4: scratch  
+- 1: color  
+- 2: scratch  
 
 All training images are treated as defect-free (all-zero masks). Each test image contains at most one defect type, mapped to the class IDs above.
 
@@ -42,7 +40,7 @@ python training/preprocess_metal_nut.py ^
   --seed 42 ^
   --overwrite
 ```
-Outputs go to `data/processed/metal_nut/images|masks/{train,val,test}` with masks encoded as single-channel PNGs containing class IDs 0–4. The ratios apply per defect folder, so defects are now included in train to allow learning positive pixels.
+Outputs go to `data/processed/metal_nut/images|masks/{train,val,test}` with masks encoded as single-channel PNGs containing class IDs 0–2. The ratios apply per defect folder, so defects are now included in train to allow learning positive pixels.
 
 ## 2) Train the U-Net
 ```bash
@@ -53,7 +51,7 @@ python training/train_unet_metalnut.py \
   --epochs 50 \
   --lr 1e-4
 ```
-The best model (by validation loss) is saved to `models/best_unet_metalnut_multiclass.pth` and evaluated on the test split at the end.
+The best model (by validation loss) is saved to `models/best_unet_metalnut_colorscratch.pth` and evaluated on the test split at the end.
 
 ## 3) FastAPI inference server
 ```bash
@@ -78,5 +76,5 @@ Visit `http://localhost:5500` and upload an image. The UI calls the API (`VITE_A
 ## Notes
 - Default image size is 256×256 with ImageNet normalization; adjust `--image-size` if you prefer 512×512 (may require more GPU memory).
 - Masks are resized with nearest-neighbor to preserve class IDs.
-- If you retrain and save a new checkpoint, ensure it lives at `models/best_unet_metalnut_multiclass.pth` (or update `WEIGHTS_PATH` in `api/main.py`).
+- If you retrain and save a new checkpoint, ensure it lives at `models/best_unet_metalnut_colorscratch.pth` (or update `WEIGHTS_PATH` in `api/main.py`).
 "# metal_quality_control" 

@@ -21,18 +21,14 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
   const [isGenerating, setIsGenerating] = useState(false);
 
   const defectLabelsFr: Record<string, string> = {
-    bent: "plié",
     color: "couleur",
-    flip: "inversion",
     scratch: "rayure",
     none: "aucun",
   };
 
   const defectRows = useMemo(
     () => [
-      { label: defectLabelsFr.bent, value: result.class_pixel_percentages.bent },
       { label: defectLabelsFr.color, value: result.class_pixel_percentages.color },
-      { label: defectLabelsFr.flip, value: result.class_pixel_percentages.flip },
       { label: defectLabelsFr.scratch, value: result.class_pixel_percentages.scratch },
     ],
     [result]

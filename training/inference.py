@@ -15,18 +15,14 @@ from training.model import UNet
 
 CLASS_ID_TO_NAME = {
     0: "background",
-    1: "bent",
-    2: "color",
-    3: "flip",
-    4: "scratch",
+    1: "color",
+    2: "scratch",
 }
 
 CLASS_COLOR_MAP = {
     0: (0, 0, 0),
-    1: (255, 0, 0),
-    2: (0, 200, 0),
-    3: (0, 120, 255),
-    4: (255, 215, 0),
+    1: (0, 200, 0),
+    2: (255, 215, 0),
 }
 
 _FOUR_NEIGHBORS = ((-1, 0), (1, 0), (0, -1), (0, 1))
@@ -260,7 +256,7 @@ def segment_nut_mask(
     return best.astype(bool)
 
 
-def load_model(weights_path: Path, device: torch.device, num_classes: int = 5) -> UNet:
+def load_model(weights_path: Path, device: torch.device, num_classes: int = 3) -> UNet:
     model = UNet(in_channels=3, num_classes=num_classes, base_channels=32)
     if not weights_path.exists():
         raise FileNotFoundError(f"Model weights not found at {weights_path}")

@@ -98,7 +98,7 @@ export function HeroSection({ isDarkMode, onUploadClick }: HeroSectionProps) {
     },
     {
       title: "Analyse par classe",
-      body: "Le système rapporte la couverture par classe : rayure, couleur, inversion et plié.",
+      body: "Le système rapporte la couverture par classe : rayure et couleur.",
       Icon: AlertCircle,
     },
     {
@@ -118,16 +118,6 @@ export function HeroSection({ isDarkMode, onUploadClick }: HeroSectionProps) {
       title: "Couleur",
       body: "Décoloration de surface ou anomalies de matière visibles sur l’écrou.",
       accent: "#00E676",
-    },
-    {
-      title: "Inversion",
-      body: "Changement de motif de surface ou incohérence de zone détectée comme classe de défaut.",
-      accent: "#3B82F6",
-    },
-    {
-      title: "Plié",
-      body: "Déformation liée à la géométrie visible sur la surface de l’écrou.",
-      accent: "#EF4444",
     },
   ] as const;
 
@@ -294,7 +284,7 @@ export function HeroSection({ isDarkMode, onUploadClick }: HeroSectionProps) {
               <div className={`h-full rounded-2xl p-6 border ${isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-gray-50"}`}>
                 <h3 className="text-lg mb-2">Répartition par classe</h3>
                 <p className={isDarkMode ? "text-[#E3E9F1]/70" : "text-gray-600"}>
-                  La sortie inclut la couverture par classe : rayure, couleur, inversion et plié.
+                  La sortie inclut la couverture par classe : rayure et couleur.
                 </p>
               </div>
               <div className={`h-full rounded-2xl p-6 border ${isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-gray-50"}`}>
@@ -384,7 +374,7 @@ export function HeroSection({ isDarkMode, onUploadClick }: HeroSectionProps) {
           {[
             { title: "Visualisation en superposition", body: "Une superposition colorée met en évidence les zones défectueuses sur l’écrou.", Icon: Eye },
             { title: "% de défaut sur la surface de l’écrou", body: "Couverture calculée uniquement sur les pixels de l’écrou (fond exclu).", Icon: CheckCircle },
-            { title: "Répartition par classe", body: "Couverture par classe : rayure, couleur, inversion, plié.", Icon: AlertCircle },
+            { title: "Répartition par classe", body: "Couverture par classe : rayure et couleur.", Icon: AlertCircle },
             { title: "Rapport PDF", body: "Téléchargez un rapport PDF pour la traçabilité et les workflows qualité.", Icon: FileText },
           ].map(({ title, body, Icon }, idx) => (
             <div
@@ -473,7 +463,7 @@ export function HeroSection({ isDarkMode, onUploadClick }: HeroSectionProps) {
             },
             {
               q: "Quels défauts sont reportés ?",
-              a: "La couverture par classe est reportée pour rayure, couleur, inversion et plié. Le modèle retourne aussi une superposition pour la confirmation visuelle.",
+              a: "La couverture par classe est reportée pour rayure et couleur. Le modèle retourne aussi une superposition pour la confirmation visuelle.",
             },
             {
               q: "Que reçois-je après l’inférence ?",

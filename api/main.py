@@ -20,7 +20,7 @@ from training.inference import (
 )
 
 IMAGE_SIZE = (256, 256)
-WEIGHTS_PATH = Path("models/best_unet_metalnut_multiclass.pth")
+WEIGHTS_PATH = Path("models/best_unet_metalnut_colorscratch.pth")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 REJECT_THRESHOLD_ON_NUT = 0.30
 
@@ -39,7 +39,7 @@ model = None
 async def load_model_at_startup():
     global model
     try:
-        model = load_model(WEIGHTS_PATH, DEVICE, num_classes=5)
+        model = load_model(WEIGHTS_PATH, DEVICE, num_classes=len(CLASS_ID_TO_NAME))
         print(f"Model loaded from {WEIGHTS_PATH} on {DEVICE}")
     except FileNotFoundError:
         model = None

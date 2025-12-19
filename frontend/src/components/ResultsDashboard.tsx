@@ -13,18 +13,14 @@ export function ResultsDashboard({ isDarkMode, uploadedImage, result, onUploadNe
   const [showOverlay, setShowOverlay] = useState(true);
 
   const defectLabels: Record<string, string> = {
-    bent: "plié",
     color: "couleur",
-    flip: "inversion",
     scratch: "rayure",
     none: "aucun",
     background: "arrière-plan",
   };
 
   const defectColors = {
-    bent: { color: "#EF4444", label: defectLabels.bent },
     color: { color: "#00E676", label: defectLabels.color },
-    flip: { color: "#3B82F6", label: defectLabels.flip },
     scratch: { color: "#FCD34D", label: defectLabels.scratch },
   };
 
@@ -161,29 +157,31 @@ export function ResultsDashboard({ isDarkMode, uploadedImage, result, onUploadNe
 
           <div className="space-y-3">
             <p className="text-sm opacity-70">Analyse par classe</p>
-            {Object.entries(result.class_pixel_percentages).map(([key, value]) => {
-              const defect = defectColors[key as keyof typeof defectColors];
-              return (
-                <div key={key} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: defect.color }} />
-                      {defect.label}
-                    </span>
-                    <span>{(value * 100).toFixed(2)}%</span>
+            {Object.entries(result.class_pixel_percentages)
+              .filter(([key]) => key in defectColors)
+              .map(([key, value]) => {
+                const defect = defectColors[key as keyof typeof defectColors];
+                return (
+                  <div key={key} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: defect.color }} />
+                        {defect.label}
+                      </span>
+                      <span>{(value * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className={`h-2 rounded-full overflow-hidden ${isDarkMode ? "bg-white/10" : "bg-gray-200"}`}>
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(value * 100, 100)}%`,
+                          backgroundColor: defect.color,
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className={`h-2 rounded-full overflow-hidden ${isDarkMode ? "bg-white/10" : "bg-gray-200"}`}>
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${Math.min(value * 100, 100)}%`,
-                        backgroundColor: defect.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       </div>
