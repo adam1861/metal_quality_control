@@ -9,10 +9,10 @@ interface HeaderProps {
 
 export function Header({ isDarkMode, setIsDarkMode, onNavigate, activeSection }: HeaderProps) {
   const navItems = [
-    { label: "Dashboard", id: "dashboard" },
-    { label: "Upload", id: "upload" },
-    { label: "Results", id: "results" },
-    { label: "About", id: "about" },
+    { label: "Tableau de bord", id: "dashboard" },
+    { label: "Importer", id: "upload" },
+    { label: "Résultats", id: "results" },
+    { label: "À propos", id: "about" },
   ];
 
   return (
@@ -37,7 +37,7 @@ export function Header({ isDarkMode, setIsDarkMode, onNavigate, activeSection }:
                 <div className={`w-2 h-2 rounded-full ${isDarkMode ? "bg-[#00E676]" : "bg-[#00E676]"}`} />
               </div>
             </div>
-            <span className="font-semibold">Metal Nut AI Inspector</span>
+            <span className="font-semibold">Inspecteur IA — Écrou Métallique</span>
           </button>
 
           <nav className="hidden md:flex items-center gap-1">

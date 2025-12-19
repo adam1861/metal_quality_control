@@ -64,11 +64,11 @@ export function UploadPanel({
         <div className="flex items-center justify-between">
           <h2 className="text-2xl flex items-center gap-2">
             <Upload className="w-6 h-6 text-[#2979FF]" />
-            Upload & Processing
+            Import & traitement
           </h2>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm">Advanced Mode</span>
+            <span className="text-sm">Mode avancé</span>
             <button
               onClick={() => setAdvancedMode(!advancedMode)}
               className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
@@ -115,13 +115,13 @@ export function UploadPanel({
               </div>
 
               <div>
-                <p className="text-lg mb-2">Drag and drop your image here</p>
+                <p className="text-lg mb-2">Glissez-déposez votre image ici</p>
                 <p
                   className={`text-sm ${
                     isDarkMode ? "text-[#E3E9F1]/60" : "text-gray-500"
                   }`}
                 >
-                  or click to browse — PNG, JPG up to 10MB
+                  ou cliquez pour choisir — PNG, JPG jusqu’à 10 Mo
                 </p>
               </div>
             </div>
@@ -135,7 +135,7 @@ export function UploadPanel({
             >
               <img
                 src={uploadedImage}
-                alt="Uploaded"
+                alt="Image importée"
                 className="w-full h-64 object-contain bg-black/5"
               />
             </div>
@@ -149,7 +149,7 @@ export function UploadPanel({
                   : "border-gray-300 text-gray-700 hover:bg-gray-50"
               }`}
             >
-              Upload a new image
+              Importer une nouvelle image
             </button>
 
             <button
@@ -160,12 +160,12 @@ export function UploadPanel({
               {isAnalyzing ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Analyzing...</span>
+                  <span>Analyse en cours...</span>
                 </>
               ) : (
                 <>
                   <Zap className="w-5 h-5" />
-                  <span>Analyze with AI</span>
+                  <span>Analyser avec l’IA</span>
                 </>
               )}
             </button>
@@ -184,7 +184,7 @@ export function UploadPanel({
                     isDarkMode ? "text-[#E3E9F1]/60" : "text-gray-500"
                   }`}
                 >
-                  Processing image... This may take a few seconds
+                  Traitement de l’image... Cela peut prendre quelques secondes
                 </p>
               </div>
             )}

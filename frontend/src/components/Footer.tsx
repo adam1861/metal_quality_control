@@ -19,17 +19,17 @@ export function Footer({ isDarkMode }: FooterProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Left Section */}
           <div className="space-y-4">
-            <h3 className="text-lg">Metal Nut AI Inspector</h3>
+            <h3 className="text-lg">Inspecteur IA — Écrou Métallique</h3>
             <p className={`text-sm max-w-md ${
               isDarkMode ? 'text-[#E3E9F1]/60' : 'text-gray-600'
             }`}>
-              Advanced AI-powered quality inspection system for industrial manufacturing. 
-              Detect surface defects with precision and speed.
+              Système avancé d’inspection qualité assistée par IA pour l’industrie.
+              Détecte les défauts de surface avec précision et rapidité.
             </p>
             <p className={`text-sm ${
               isDarkMode ? 'text-[#E3E9F1]/50' : 'text-gray-500'
             }`}>
-              Developed by <span className="text-[#2979FF]">Adam Lachkar</span>
+              Développé par <span className="text-[#2979FF]">Adam Lachkar</span>
             </p>
           </div>
 
@@ -58,10 +58,7 @@ export function Footer({ isDarkMode }: FooterProps) {
             ? 'border-white/10 text-[#E3E9F1]/50' 
             : 'border-gray-200 text-gray-500'
         }`}>
-          <p>© 2025 Metal Nut AI Inspector. All rights reserved.</p>
-          <p className="mt-2 text-xs">
-            ⚠️ Figma Make is not meant for collecting PII or securing sensitive data.
-          </p>
+          <p>© 2025 Inspecteur IA — Écrou Métallique. Tous droits réservés.</p>
         </div>
       </div>
     </footer>

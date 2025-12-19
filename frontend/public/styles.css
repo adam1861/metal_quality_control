@@ -1,0 +1,102 @@
+/* Scroll reveal (used by the landing page) */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 700ms ease, transform 700ms ease;
+  will-change: opacity, transform;
+}
+
+.reveal.reveal--visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* FAQ accordion polish */
+details.faq-item > summary {
+  list-style: none;
+}
+
+details.faq-item > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.faq-item[open] .faq-chevron {
+  transform: rotate(180deg);
+}
+
+.faq-chevron {
+  transition: transform 200ms ease;
+}
+
+/* Avoid sticky header covering anchored sections */
+section[id] {
+  scroll-margin-top: 90px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Missing Tailwind utilities (Figma export does not include every class).     */
+/* These are intentionally minimal and only cover what the landing page uses. */
+/* -------------------------------------------------------------------------- */
+
+/* spacing */
+.p-10 {
+  padding: calc(var(--spacing) * 10);
+}
+
+.gap-10 {
+  gap: calc(var(--spacing) * 10);
+}
+
+:where(.space-y-16 > :not(:last-child)) {
+  --tw-space-y-reverse: 0;
+  margin-block-start: calc(calc(var(--spacing) * 16) * var(--tw-space-y-reverse));
+  margin-block-end: calc(calc(var(--spacing) * 16) * calc(1 - var(--tw-space-y-reverse)));
+}
+
+/* sizing */
+.max-w-4xl {
+  max-width: 56rem;
+}
+
+@media (width >= 40rem) {
+  .sm\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width >= 48rem) {
+  .md\:p-12 {
+    padding: calc(var(--spacing) * 12);
+  }
+
+  .md\:p-16 {
+    padding: calc(var(--spacing) * 16);
+  }
+
+  .md\:text-5xl {
+    font-size: var(--text-5xl);
+    line-height: var(--tw-leading, var(--text-5xl--line-height));
+  }
+}
+
+@media (width >= 64rem) {
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lg\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .lg\:col-span-2 {
+    grid-column: span 2 / span 2;
+  }
+}

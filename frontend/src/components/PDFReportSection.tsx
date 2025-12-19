@@ -20,12 +20,20 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
 
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const defectLabelsFr: Record<string, string> = {
+    bent: "plié",
+    color: "couleur",
+    flip: "inversion",
+    scratch: "rayure",
+    none: "aucun",
+  };
+
   const defectRows = useMemo(
     () => [
-      { label: "bent", value: result.class_pixel_percentages.bent },
-      { label: "color", value: result.class_pixel_percentages.color },
-      { label: "flip", value: result.class_pixel_percentages.flip },
-      { label: "scratch", value: result.class_pixel_percentages.scratch },
+      { label: defectLabelsFr.bent, value: result.class_pixel_percentages.bent },
+      { label: defectLabelsFr.color, value: result.class_pixel_percentages.color },
+      { label: defectLabelsFr.flip, value: result.class_pixel_percentages.flip },
+      { label: defectLabelsFr.scratch, value: result.class_pixel_percentages.scratch },
     ],
     [result]
   );
@@ -42,30 +50,38 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
-      doc.text("Metal Nut Defect Report", 14, y);
+      doc.text("Rapport d'inspection - Écrou métallique", 14, y);
       y += 8;
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
-      doc.text(`Defective: ${result.is_defective ? "Yes" : "No"}`, 14, y);
+      doc.text(`Défaut détecté : ${result.is_defective ? "Oui" : "Non"}`, 14, y);
       y += 6;
       const topPct = ((result.dominant_defect_ratio ?? 0) * 100).toFixed(2);
-      doc.text(`Top defect: ${result.dominant_defect || "none"} (${topPct}%)`, 14, y);
+      const dominant = result.dominant_defect || "none";
+      const dominantLabel = defectLabelsFr[dominant] ?? dominant;
+      doc.text(`Défaut principal : ${dominantLabel} (${topPct}%)`, 14, y);
       y += 6;
-      doc.text(`Defect on nut: ${(result.defect_ratio * 100).toFixed(2)}%`, 14, y);
+      doc.text(`Défaut sur l'écrou : ${(result.defect_ratio * 100).toFixed(2)}%`, 14, y);
       y += 6;
       if (typeof result.defect_ratio_image === "number") {
-        doc.text(`Defect on image: ${(result.defect_ratio_image * 100).toFixed(2)}%`, 14, y);
+        doc.text(`Défaut sur l'image : ${(result.defect_ratio_image * 100).toFixed(2)}%`, 14, y);
         y += 6;
       }
       if (result.quality_decision) {
-        doc.text(`Decision: ${result.quality_decision}`, 14, y);
+        const decisionLabel =
+          result.quality_decision === "REJECT"
+            ? "REJETÉ"
+            : result.quality_decision === "ACCEPT"
+            ? "ACCEPTÉ"
+            : result.quality_decision;
+        doc.text(`Décision : ${decisionLabel}`, 14, y);
         y += 6;
       }
       y += 4;
 
       if (reportOptions.includePerClass) {
-        doc.text("Per-class pixel percentages:", 14, y);
+        doc.text("Pourcentage de pixels par classe :", 14, y);
         y += 6;
         defectRows.forEach((row) => {
           doc.text(`- ${row.label}: ${(row.value * 100).toFixed(2)}%`, 18, y);
@@ -76,26 +92,26 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
 
       if (reportOptions.includeOriginal && originalImage) {
         doc.setFont("helvetica", "bold");
-        doc.text("Original", 14, y);
+        doc.text("Image originale", 14, y);
         doc.addImage(originalImage, "PNG", 14, y + 2, 80, 80);
       }
       if (reportOptions.includeMask && overlayImage) {
         doc.setFont("helvetica", "bold");
-        doc.text("Overlay", 110, y);
+        doc.text("Superposition", 110, y);
         doc.addImage(overlayImage, "PNG", 110, y + 2, 80, 80);
       }
 
-      doc.save("metal_nut_defect_report.pdf");
+      doc.save("rapport_inspection_ecrou_metallique.pdf");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const options = [
-    { key: "includeOriginal", label: "Include original image" },
-    { key: "includeMask", label: "Include segmentation overlay" },
-    { key: "includePerClass", label: "Include per-class analysis" },
-    { key: "includeStats", label: "Include defect stats table" },
+    { key: "includeOriginal", label: "Inclure l’image originale" },
+    { key: "includeMask", label: "Inclure la superposition de segmentation" },
+    { key: "includePerClass", label: "Inclure l’analyse par classe" },
+    { key: "includeStats", label: "Inclure le tableau de statistiques des défauts" },
   ] as const;
 
   return (
@@ -107,12 +123,12 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <FileText className="w-6 h-6 text-[#2979FF]" />
-          <h2 className="text-2xl">PDF Report Generation</h2>
+          <h2 className="text-2xl">Génération du rapport PDF</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <h3 className="opacity-70">Report Options</h3>
+            <h3 className="opacity-70">Options du rapport</h3>
             <div className="space-y-3">
               {options.map(({ key, label }) => (
                 <label
@@ -142,7 +158,7 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
           </div>
 
           <div className="space-y-4">
-            <h3 className="opacity-70">Report Preview</h3>
+            <h3 className="opacity-70">Aperçu du rapport</h3>
             <div
               className={`rounded-xl p-6 border-2 border-dashed h-full flex flex-col items-center justify-center gap-4 ${
                 isDarkMode ? "border-white/20 bg-white/5" : "border-gray-300 bg-gray-50"
@@ -152,9 +168,9 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
                 <FileText className="w-12 h-12 text-[#2979FF]" />
               </div>
               <div className="text-center">
-                <p className="mb-2">Professional Inspection Report</p>
+                <p className="mb-2">Rapport d’inspection professionnel</p>
                 <p className={`text-sm ${isDarkMode ? "text-[#E3E9F1]/60" : "text-gray-500"}`}>
-                  A4 format · High resolution · Includes visuals
+                  Format A4 · Haute résolution · Inclut les visuels
                 </p>
               </div>
             </div>
@@ -169,12 +185,12 @@ export function PDFReportSection({ isDarkMode, result, originalImage, overlayIma
           {isGenerating ? (
             <>
               <div className="w-5 h-5 border-2 border-white/30 border-top-white rounded-full animate-spin" />
-              <span>Generating Report...</span>
+              <span>Génération du rapport...</span>
             </>
           ) : (
             <>
               <Download className="w-5 h-5" />
-              <span>Generate Inspection Report</span>
+              <span>Générer le rapport d’inspection</span>
             </>
           )}
         </button>

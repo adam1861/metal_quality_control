@@ -92,14 +92,14 @@ export default function App() {
       });
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Request failed (${response.status})`);
+        throw new Error(text || `Requête échouée (${response.status})`);
       }
       const data = (await response.json()) as PredictionResult;
       setResult(data);
       setActiveSection("results");
     } catch (err: any) {
       console.error(err);
-      setError((err?.message || "Inference failed.") + ` (API: ${API_URL})`);
+      setError((err?.message || "Échec de l’analyse.") + ` (API: ${API_URL})`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -181,13 +181,15 @@ export default function App() {
             </>
           ) : (
             <div className={`rounded-2xl p-8 border ${isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white shadow"} `}>
-              <h3 className="text-xl font-semibold mb-2">No results yet</h3>
-              <p className={isDarkMode ? "text-[#E3E9F1]/70" : "text-gray-600"}>Run an analysis in the Upload page to see results here.</p>
+              <h3 className="text-xl font-semibold mb-2">Aucun résultat pour le moment</h3>
+              <p className={isDarkMode ? "text-[#E3E9F1]/70" : "text-gray-600"}>
+                Lancez une analyse dans la page Importer pour afficher les résultats ici.
+              </p>
               <button
                 className="mt-4 px-4 py-2 rounded-lg bg-gradient-to-r from-[#2979FF] to-[#00E676] text-white shadow hover:shadow-lg"
                 onClick={() => navigateTo("upload")}
               >
-                Go to Upload
+                Aller à Importer
               </button>
             </div>
           )
@@ -195,22 +197,24 @@ export default function App() {
 
         {activeSection === "about" && (
           <div className={`rounded-2xl p-8 border ${isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white shadow"}`}>
-            <h3 className="text-2xl font-semibold mb-3">About Metal Nut AI Inspector</h3>
+            <h3 className="text-2xl font-semibold mb-3">À propos</h3>
             <p className={isDarkMode ? "text-[#E3E9F1]/80" : "text-gray-700"}>
-              Multi-class defect detection for MVTec metal_nut (bent, color, flip, scratch). Preprocess, train U-Net, run FastAPI inference, and visualize results in this React UI with PDF reporting.
+              Détection multi-classes de défauts pour MVTec metal_nut (bent, color, flip, scratch) : préparation des
+              données, entraînement U-Net, inférence via API, et visualisation des résultats dans cette interface avec
+              génération de rapport PDF.
             </p>
             <div className="mt-4 space-x-3">
               <button
                 className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2979FF] to-[#00E676] text-white shadow hover:shadow-lg"
                 onClick={() => navigateTo("upload")}
               >
-                Start Upload
+                Importer une image
               </button>
               <button
                 className={`px-4 py-2 rounded-lg border ${isDarkMode ? "border-white/20 text-[#E3E9F1]" : "border-gray-300 text-gray-700"} hover:shadow`}
                 onClick={() => navigateTo("results")}
               >
-                View Results
+                Voir les résultats
               </button>
             </div>
           </div>
