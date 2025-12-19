@@ -314,8 +314,16 @@ def predict_metal_nut_defects(
         dtype=np.uint8,
     )
 
+    # Safety: if a mismatched checkpoint is ever served, clamp any unknown IDs to background
+    # so metrics/overlays stay consistent with CLASS_ID_TO_NAME.
+    allowed_ids = np.array(sorted(CLASS_ID_TO_NAME.keys()), dtype=np.uint8)
+    known = np.isin(resized_mask, allowed_ids)
+    if not bool(known.all()):
+        resized_mask = np.where(known, resized_mask, 0).astype(np.uint8, copy=False)
+
     per_class_pixel_counts = {cls: int((resized_mask == cls).sum()) for cls in CLASS_ID_TO_NAME.keys()}
-    defect_pixels = int((resized_mask != 0).sum())
+    defect_ids = np.array([i for i in CLASS_ID_TO_NAME.keys() if i != 0], dtype=np.uint8)
+    defect_pixels = int(np.isin(resized_mask, defect_ids).sum())
     defect_ratio = defect_pixels / float(resized_mask.size)
 
     overlay_layer = np.zeros((resized_mask.shape[0], resized_mask.shape[1], 4), dtype=np.uint8)

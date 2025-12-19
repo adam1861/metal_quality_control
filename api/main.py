@@ -51,7 +51,13 @@ async def load_model_at_startup():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model_loaded": model is not None, "device": str(DEVICE)}
+    return {
+        "status": "ok",
+        "model_loaded": model is not None,
+        "device": str(DEVICE),
+        "weights_path": str(WEIGHTS_PATH),
+        "class_id_to_name": CLASS_ID_TO_NAME,
+    }
 
 
 @app.post("/predict")
@@ -78,7 +84,8 @@ async def predict(image: UploadFile = File(...)):
         nut_mask = np.ones_like(mask, dtype=bool)
         nut_pixels = int(nut_mask.sum())
 
-    defect_mask = mask != 0
+    defect_ids = [idx for idx in CLASS_ID_TO_NAME.keys() if idx != 0]
+    defect_mask = np.isin(mask, defect_ids)
     defect_pixels_image = int(defect_mask.sum())
     defect_pixels_on_nut = int(np.logical_and(defect_mask, nut_mask).sum())
     defect_ratio_on_nut = defect_pixels_on_nut / float(nut_pixels) if nut_pixels else 0.0
